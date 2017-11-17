@@ -57,7 +57,8 @@
         android:id="@+id/iv"
         android:layout_gravity="center_horizontal"
         android:layout_width="100dp"
-        android:layout_height="100dp"/>
+        android:layout_height="100dp"
+        android:src="@mipmap/start_marry"/>
 
     <ProgressBar
         android:id="@+id/progressBar"

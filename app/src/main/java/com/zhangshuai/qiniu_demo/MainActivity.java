@@ -1,8 +1,12 @@
 package com.zhangshuai.qiniu_demo;
 
+import android.app.Dialog;
+import android.app.ProgressDialog;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Bundle;
+import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
@@ -11,6 +15,7 @@ import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.bigkoo.pickerview.TimePickerView;
 import com.bigkoo.pickerview.listener.CustomListener;
@@ -24,6 +29,7 @@ import com.qiniu.android.storage.UpCompletionHandler;
 import com.qiniu.android.storage.UpProgressHandler;
 import com.qiniu.android.storage.UploadManager;
 import com.qiniu.android.storage.UploadOptions;
+import com.yayandroid.rotatable.Rotatable;
 import com.zhangshuai.qiniu_demo.glide.GlideCircleTransform;
 
 import org.json.JSONObject;
@@ -94,10 +100,10 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     private File file = null;
-    private String path ="";
+    private String path = "";
     private String key = "";
-    private String token = "mWzmRbD1k2EDBZnLOypHZ3ayKbwD1jPCQX0PQ_zS:pxU3MPN4QEQBhiu8WbJX_TIsjpI" +
-            "=:eyJzY29wZSI6InFpbml1LWRlbW8iLCJkZWFkbGluZSI6MTUwOTY2NjAxN30=";
+    private String token = "mWzmRbD1k2EDBZnLOypHZ3ayKbwD1jPCQX0PQ_zS:VpmhoB27kLLBOLVfSi5Il288HRU" +
+            "=:eyJzY29wZSI6InFpbml1LWRlbW8iLCJkZWFkbGluZSI6MTUxMDkyNzk5Nn0=";
 
     private void upLoadImg() {
         file = new File(path);
@@ -106,9 +112,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             public void complete(String key, ResponseInfo info, JSONObject response) {
                 if (info.isOK()) {
                     Log.i("qiniu", "Upload Success");
+                    Toast.makeText(MainActivity.this,"Upload Success",Toast.LENGTH_LONG).show();
                 } else {
                     Log.i("qiniu", "Upload Fail");
                     //如果失败，这里可以把info信息上报自己的服务器，便于后面分析上传错误原因
+                    Toast.makeText(MainActivity.this,"Upload Fail",Toast.LENGTH_LONG).show();
                 }
                 Log.i("qiniu", key + ",\r\n " + info + ",\r\n " + response);
             }
@@ -118,7 +126,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 Log.i("qiniu", key + ": " + percent);
                 progressBar.setProgress((int) percent);
             }
-        },null));
+        }, null));
     }
 
     @Override
@@ -131,32 +139,46 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 upLoadImg();
                 break;
             case R.id.button2:
-//                selectPhoto();
-                initCustomTimePicker();
+                selectPhoto();
+//                initCustomTimePicker();
                 break;
             case R.id.button3:
-//                selectPhotoWithcamera();
+                selectPhotoWithcamera();
 //                preview();
-                initTimePicker();
+//                initTimePicker();
+//                rotation();
                 break;
             case R.id.button4:
 //                selectPhotoWithcamera();
-//                takePhoto();
-                showTimePicker();
+                takePhoto();
+//                showTimePicker();
+//                showDialog();
+//                showAlertDialog();
+//                showLoadingDialog();
                 break;
             default:
                 break;
         }
 
     }
-    private void takePhoto(){
+
+    private void rotation() {
+
+        Rotatable build = new Rotatable.Builder(iv)
+                .rotationCount(20)
+                .direction(Rotatable.ROTATE_Y)
+                .build();
+        build.rotate(Rotatable.ROTATE_Y, 180, 500);
+    }
+
+    private void takePhoto() {
         PhotoPicker.builder()
                 .setType(true)
                 .setShowCamera(false)
                 .start(this, PhotoPicker.REQUEST_CODE);
     }
 
-    private void selectPhoto(){
+    private void selectPhoto() {
         PhotoPicker.builder()
                 .setPhotoCount(9)
                 .setShowCamera(false)
@@ -165,7 +187,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 .start(this, PhotoPicker.REQUEST_CODE);
     }
 
-    private void selectPhotoWithcamera(){
+    private void selectPhotoWithcamera() {
         PhotoPicker.builder()
                 .setPhotoCount(9)
                 .setShowCamera(true)
@@ -173,12 +195,14 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 .setPreviewEnabled(true)
                 .start(this, PhotoPicker.REQUEST_CODE);
     }
-    private void preview(){
+
+    private void preview() {
         PhotoPreview.builder()
-            .setPhotos(photos)
-            .setCurrentItem(0)
-            .setShowDeleteButton(true)
-            .start(MainActivity.this);}
+                .setPhotos(photos)
+                .setCurrentItem(0)
+                .setShowDeleteButton(true)
+                .start(MainActivity.this);
+    }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
@@ -186,24 +210,29 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         if (resultCode == RESULT_OK && requestCode == PhotoPicker.REQUEST_CODE) {
             if (data != null) {
                 photos = data.getStringArrayListExtra(PhotoPicker.KEY_SELECTED_PHOTOS);
-                Log.i("onActivityResult", "onActivityResult:photos.size()= "+ photos.size());
-                if (photos.size()>0){
+                Log.i("onActivityResult", "onActivityResult:photos.size()= " + photos.size());
+                if (photos.size() > 0) {
                     path = photos.get(0);
                     editText2.setText(path);
-                    Log.i("onActivityResult", "onActivityResult:photos.path= "+ path);
+                    int i = path.lastIndexOf("/");
+                    String fileName = path.substring(i+1, path.length());
+                    editText.setText(fileName);
+                    Log.i("onActivityResult", "onActivityResult:photos.path= " + path);
                     RequestManager with = Glide.with(this);
                     RequestOptions requestOptions = new RequestOptions();
                     requestOptions.transform(getGlideRoundTransformWithArc(this));
                     with.setDefaultRequestOptions(requestOptions)
-                                                        .load(path)
-                                                        .into(iv);
+                            .load(path)
+                            .into(iv);
 
 
                 }
             }
         }
     }
+
     private static GlideCircleTransform mGlideCircleTransform;
+
     public static GlideCircleTransform getGlideRoundTransformWithArc(Context context) {
         if (mGlideCircleTransform == null) {
             return mGlideCircleTransform = new GlideCircleTransform(context);
@@ -211,17 +240,19 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         return mGlideCircleTransform;
     }
 
-    private void showTimePicker(){
+    private void showTimePicker() {
 
         //时间选择器
-        TimePickerView pvTime = new TimePickerView.Builder(this, new TimePickerView.OnTimeSelectListener() {
+        TimePickerView pvTime = new TimePickerView.Builder(this, new TimePickerView
+                .OnTimeSelectListener() {
             @Override
             public void onTimeSelect(Date date, View v) {//选中事件回调
                 editText2.setText(getTime(date));
             }
         })
                 .build();
-//        pvTime.setDate(Calendar.getInstance());//注：根据需求来决定是否使用该方法（一般是精确到秒的情况），此项可以在弹出选择器的时候重新设置当前时间，避免在初始化之后由于时间已经设定，导致选中时间与当前时间不匹配的问题。
+//        pvTime.setDate(Calendar.getInstance());
+// 注：根据需求来决定是否使用该方法（一般是精确到秒的情况），此项可以在弹出选择器的时候重新设置当前时间，避免在初始化之后由于时间已经设定，导致选中时间与当前时间不匹配的问题。
         pvTime.show();
     }
 
@@ -334,5 +365,57 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
         pvCustomTime.show();
 
+    }
+
+    private void showDialog() {
+        final AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("标题");
+        builder.setMessage("内容");
+        builder.setNegativeButton("取消", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialogInterface, int i) {
+                Toast.makeText(MainActivity.this, "点击取消", Toast.LENGTH_SHORT).show();
+            }
+        });
+        builder.setPositiveButton("确定", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialogInterface, int i) {
+                Toast.makeText(MainActivity.this, "点击确定", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        builder.show();
+    }
+
+    private void showAlertDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        AlertDialog alertDialog = builder.create();
+        alertDialog.setTitle("标题");
+        alertDialog.setMessage("内容");
+        alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "确定", new DialogInterface
+                .OnClickListener() {
+
+            @Override
+            public void onClick(DialogInterface dialogInterface, int i) {
+                Toast.makeText(MainActivity.this, "点击确定", Toast.LENGTH_SHORT).show();
+            }
+        });
+        alertDialog.setButton(DialogInterface.BUTTON_NEGATIVE, "取消", new DialogInterface
+                .OnClickListener() {
+
+            @Override
+            public void onClick(DialogInterface dialogInterface, int i) {
+                Toast.makeText(MainActivity.this, "点击取消", Toast.LENGTH_SHORT).show();
+            }
+        });
+        alertDialog.show();
+    }
+
+    private void showLoadingDialog() {
+        ProgressDialog progressDialog = new ProgressDialog(this);
+//        progressDialog.setTitle("提示");
+        progressDialog.setMessage("内容");
+        progressDialog.setProgress(20);
+        progressDialog.show();
     }
 }
