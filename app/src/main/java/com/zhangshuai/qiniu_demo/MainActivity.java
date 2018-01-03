@@ -1,15 +1,32 @@
 package com.zhangshuai.qiniu_demo;
 
-import android.app.Dialog;
+import android.animation.Animator;
+import android.animation.ObjectAnimator;
+import android.animation.ValueAnimator;
+import android.app.KeyguardManager;
 import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.IntentFilter;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
+import android.content.res.AssetManager;
+import android.graphics.Color;
+import android.media.MediaPlayer;
+import android.media.RingtoneManager;
 import android.os.Bundle;
+import android.os.CountDownTimer;
+import android.os.Handler;
+import android.os.Message;
+import android.os.PowerManager;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.util.Log;
 import android.view.View;
+import android.view.animation.LinearInterpolator;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
@@ -17,11 +34,13 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.bigkoo.pickerview.OptionsPickerView;
 import com.bigkoo.pickerview.TimePickerView;
 import com.bigkoo.pickerview.listener.CustomListener;
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.RequestManager;
 import com.bumptech.glide.request.RequestOptions;
+import com.google.gson.Gson;
 import com.qiniu.android.common.FixedZone;
 import com.qiniu.android.http.ResponseInfo;
 import com.qiniu.android.storage.Configuration;
@@ -30,16 +49,29 @@ import com.qiniu.android.storage.UpProgressHandler;
 import com.qiniu.android.storage.UploadManager;
 import com.qiniu.android.storage.UploadOptions;
 import com.yayandroid.rotatable.Rotatable;
+import com.zhangshuai.qiniu_demo.Utils.UserUtils;
+import com.zhangshuai.qiniu_demo.bean.AnswerBean;
+import com.zhangshuai.qiniu_demo.bean.AreasBean;
+import com.zhangshuai.qiniu_demo.bean.Bean;
+import com.zhangshuai.qiniu_demo.bean.NationBean;
+import com.zhangshuai.qiniu_demo.bean.ProvinceBean;
 import com.zhangshuai.qiniu_demo.glide.GlideCircleTransform;
+import com.zhangshuai.qiniu_demo.receiver.LockScreenReceiver;
 
 import org.json.JSONObject;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 
+import butterknife.ButterKnife;
+import butterknife.OnClick;
 import me.iwf.photopicker.PhotoPicker;
 import me.iwf.photopicker.PhotoPreview;
 
@@ -59,16 +91,71 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private ImageView iv;
     private TimePickerView pvCustomTime;
     private TimePickerView pvTime;
+    private String TAG = MainActivity.class.getName();
+    private OptionsPickerView pvOptions;
+
+    private ArrayList<AnswerBean> answerBeanArrayList = new ArrayList<>();
+
+    private LockScreenReceiver receiver = new LockScreenReceiver();
+    private TextView textview;
+    private long startTime;
+    private ArrayList<String> urls;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        ButterKnife.bind(this);
         initQiniuSdk();
         initView();
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(Intent.ACTION_SCREEN_OFF);
+        filter.addAction(Intent.ACTION_SCREEN_ON);
+        filter.addAction(Intent.ACTION_USER_PRESENT);
+        registerReceiver(receiver, filter);
+
+        for (int i = 0; i < 5; i++) {
+            answerBeanArrayList.add(new AnswerBean(i, "answer " + i, true));
+        }
+
+        Gson gson = new Gson();
+        String s = gson.toJson(answerBeanArrayList);
+        Log.i(TAG, "onCreate: s =" + s);
+
+        String format = String.format("一共有（%s）人", "6");
+        Log.i(TAG, "onCreate: format = " + format);
+
+        AnswerBean haha = new AnswerBean(1, "haha", true);
+        Bean bean = (Bean) haha;
+        Log.i(TAG, "onCreate: bean.type = " + bean.type);
+        AnswerBean haha2 = (AnswerBean) bean;
+        Log.i(TAG, "onCreate: haha2.answerId = " + haha2.answerId);
+        Log.i(TAG, "onCreate: haha2.answer = " + haha2.answer);
+        Log.i(TAG, "onCreate: haha2.isAbsCondition = " + haha2.isAbsCondition);
+        Log.i(TAG, "onCreate: haha2.type = " + haha2.type);
+
+        try {
+            PackageInfo packageInfo = getPackageManager().getPackageInfo(getPackageName(), 0);
+//            iv.setImageDrawable(packageInfo.applicationInfo.loadIcon(getPackageManager()));
+//            iv.setImageResource(packageInfo.applicationInfo.icon);
+        } catch (PackageManager.NameNotFoundException e) {
+            e.printStackTrace();
+        }
+
+        initUrl();
+    }
+
+
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        unregisterReceiver(receiver);
     }
 
     private void initView() {
+        textview = findViewById(R.id.textview);
         editText = (EditText) findViewById(R.id.editText);
         editText2 = (EditText) findViewById(R.id.editText2);
         button = (Button) findViewById(R.id.button);
@@ -76,11 +163,69 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         button3 = (Button) findViewById(R.id.button3);
         button4 = (Button) findViewById(R.id.button4);
         progressBar = (ProgressBar) findViewById(R.id.progressBar);
+        progressBar.setProgress(50);
         iv = (ImageView) findViewById(R.id.iv);
         button.setOnClickListener(this);
         button2.setOnClickListener(this);
         button3.setOnClickListener(this);
         button4.setOnClickListener(this);
+        button4.setText("响铃");
+        iv.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                boolean selected = iv.isSelected();
+                if (selected) {
+                    iv.setSelected(false);
+                } else {
+                    iv.setSelected(true);
+                }
+            }
+        });
+        textview.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                boolean isSelected = textview.isSelected();
+                Log.i(TAG, "onClick: isSelected= " + isSelected);
+                if (textview.isSelected()) {
+                    textview.setSelected(false);
+                } else {
+                    textview.setSelected(true);
+                }
+
+            }
+        });
+        editText.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+                Log.i(TAG, "beforeTextChanged: s = " + s);
+                Log.i(TAG, "beforeTextChanged: start = " + start);
+                Log.i(TAG, "beforeTextChanged: count = " + count);
+                Log.i(TAG, "beforeTextChanged: after = " + after);
+                Log.i(TAG, "------------------------");
+            }
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                Log.i(TAG, "onTextChanged: s = " + s);
+                Log.i(TAG, "onTextChanged: start = " + start);
+                Log.i(TAG, "onTextChanged: count = " + count);
+                Log.i(TAG, "onTextChanged: before = " + before);
+                Log.i(TAG, "------------------------");
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {
+                Log.i(TAG, "afterTextChanged: s = " + s);
+                Log.i(TAG, "===========================");
+            }
+        });
+
+        editText.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+            @Override
+            public void onFocusChange(View v, boolean hasFocus) {
+                Log.i(TAG, "onFocusChange: hasFocus =" + hasFocus);
+            }
+        });
     }
 
     private void initQiniuSdk() {
@@ -112,11 +257,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             public void complete(String key, ResponseInfo info, JSONObject response) {
                 if (info.isOK()) {
                     Log.i("qiniu", "Upload Success");
-                    Toast.makeText(MainActivity.this,"Upload Success",Toast.LENGTH_LONG).show();
+                    Toast.makeText(MainActivity.this, "Upload Success", Toast.LENGTH_LONG).show();
                 } else {
                     Log.i("qiniu", "Upload Fail");
                     //如果失败，这里可以把info信息上报自己的服务器，便于后面分析上传错误原因
-                    Toast.makeText(MainActivity.this,"Upload Fail",Toast.LENGTH_LONG).show();
+                    Toast.makeText(MainActivity.this, "Upload Fail", Toast.LENGTH_LONG).show();
                 }
                 Log.i("qiniu", key + ",\r\n " + info + ",\r\n " + response);
             }
@@ -136,25 +281,35 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             case R.id.button:
                 key = editText.getText().toString().trim();
                 path = editText2.getText().toString().trim();
-                upLoadImg();
+//                upLoadImg();
+                handler.postDelayed(null, 3000);
                 break;
             case R.id.button2:
                 selectPhoto();
 //                initCustomTimePicker();
                 break;
             case R.id.button3:
-                selectPhotoWithcamera();
+//                selectPhotoWithcamera();
 //                preview();
 //                initTimePicker();
-//                rotation();
+                rotation();
                 break;
             case R.id.button4:
+//                button4.setText("初始化json数据");
 //                selectPhotoWithcamera();
-                takePhoto();
+//                takePhoto();
 //                showTimePicker();
 //                showDialog();
 //                showAlertDialog();
 //                showLoadingDialog();
+//                Intent intent = new Intent(this, CustomActivity.class);
+//                startActivity(intent);
+//                initJsonData();
+//                startAlarm(this);
+//                alphaAnimation();
+//                daojishi();
+                Intent intent = new Intent(this, Main2Activity.class);
+                startActivity(intent);
                 break;
             default:
                 break;
@@ -168,7 +323,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 .rotationCount(20)
                 .direction(Rotatable.ROTATE_Y)
                 .build();
-        build.rotate(Rotatable.ROTATE_Y, 180, 500);
+        build.rotate(Rotatable.ROTATE_Y, 180, 5000);
+        build.drop();
     }
 
     private void takePhoto() {
@@ -215,7 +371,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     path = photos.get(0);
                     editText2.setText(path);
                     int i = path.lastIndexOf("/");
-                    String fileName = path.substring(i+1, path.length());
+                    String fileName = path.substring(i + 1, path.length());
                     editText.setText(fileName);
                     Log.i("onActivityResult", "onActivityResult:photos.path= " + path);
                     RequestManager with = Glide.with(this);
@@ -413,9 +569,264 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     private void showLoadingDialog() {
         ProgressDialog progressDialog = new ProgressDialog(this);
-//        progressDialog.setTitle("提示");
+        progressDialog.setTitle("提示");
         progressDialog.setMessage("内容");
         progressDialog.setProgress(20);
         progressDialog.show();
     }
+
+    private ArrayList<ProvinceBean> options1Items = new ArrayList<>();
+    private ArrayList<ArrayList<String>> options2Items = new ArrayList<>();
+
+    private void initOptionPicker() {//条件选择器初始化
+
+        /**
+         * 注意 ：如果是三级联动的数据(省市区等)，请参照 JsonDataActivity 类里面的写法。
+         */
+
+        pvOptions = new OptionsPickerView.Builder(this, new OptionsPickerView
+                .OnOptionsSelectListener() {
+            @Override
+            public void onOptionsSelect(int options1, int options2, int options3, View v) {
+                //返回的分别是三个级别的选中位置
+//                String tx = options1Items.get(options1).getPickerViewText()
+//                        + options2Items.get(options1).get(options2)
+//                       /* + options3Items.get(options1).get(options2).get(options3)
+// .getPickerViewText()*/;
+//                btn_Options.setText(tx);
+            }
+        })
+                .setTitleText("城市选择")
+                .setContentTextSize(20)//设置滚轮文字大小
+                .setDividerColor(Color.LTGRAY)//设置分割线的颜色
+                .setSelectOptions(0, 1)//默认选中项
+                .setBgColor(Color.BLACK)
+                .setTitleBgColor(Color.DKGRAY)
+                .setTitleColor(Color.LTGRAY)
+                .setCancelColor(Color.YELLOW)
+                .setSubmitColor(Color.YELLOW)
+                .setTextColorCenter(Color.LTGRAY)
+                .isCenterLabel(false) //是否只显示中间选中项的label文字，false则每项item全部都带有label。
+                .setLabels("省", "市", "区")
+                .setBackgroundId(0x66000000) //设置外部遮罩颜色
+                .build();
+
+        //pvOptions.setSelectOptions(1,1);
+        /*pvOptions.setPicker(options1Items);//一级选择器*/
+        pvOptions.setPicker(options1Items, options2Items);//二级选择器
+        /*pvOptions.setPicker(options1Items, options2Items,options3Items);//三级选择器*/
+    }
+
+
+    private void initJsonData() {
+        /*String json = readFileToJson(this, "nation.json");
+        Log.i(TAG, "initJsonData: nation = "+json);
+        NationBean nationBean = parseNation(json);
+        Log.i(TAG, "initJsonData: nationBean.data.size()"+nationBean.data.size());*/
+        String area = readFileToJson(this, "area.json");
+        Log.i(TAG, "initJsonData: nation = " + area);
+        AreasBean areasBean = parseArea(area);
+        Log.i(TAG, "initJsonData: areasBean.nations.size()" + areasBean.nations.size());
+        AreasBean.CountryBean countryBean = areasBean.nations.get(0);
+        Log.i(TAG, "initJsonData: countryBean.name" + countryBean.name);
+        Log.i(TAG, "initJsonData: countryBean.provines.size()" + countryBean.provines.size());
+        AreasBean.CountryBean.ProvineBean provineBean = countryBean.provines.get(0);
+        Log.i(TAG, "initJsonData: provineBean.name" + provineBean.name);
+        Log.i(TAG, "initJsonData: provineBean.cities.size()" + provineBean.cities.size());
+        AreasBean.CountryBean.ProvineBean.CityBean cityBean = provineBean.cities.get(0);
+        Log.i(TAG, "initJsonData: cityBean.name" + cityBean.name);
+    }
+
+    private AreasBean parseArea(String json) {
+        Gson gson = new Gson();
+        AreasBean areaBean = gson.fromJson(json, AreasBean.class);
+        return areaBean;
+
+    }
+
+    private NationBean parseNation(String json) {
+        Gson gson = new Gson();
+        NationBean nationBean = gson.fromJson(json, NationBean.class);
+        return nationBean;
+
+    }
+
+    private String readFileToJson(Context context, String fileName) {
+        InputStream open = null;
+        InputStreamReader inputStreamReader = null;
+        BufferedReader bufferedReader = null;
+        StringBuffer stringBuffer = new StringBuffer();
+        AssetManager assets = context.getAssets();
+        try {
+            open = assets.open(fileName);
+            inputStreamReader = new InputStreamReader(open);
+            bufferedReader = new BufferedReader(inputStreamReader);
+            String readLine;
+            while ((readLine = bufferedReader.readLine()) != null) {
+                stringBuffer.append(readLine);
+            }
+            return stringBuffer.toString();
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                open.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            try {
+                inputStreamReader.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            try {
+                bufferedReader.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        return "";
+    }
+
+    Handler handler = new Handler(new Handler.Callback() {
+        @Override
+        public boolean handleMessage(Message msg) {
+//            startActivity(new Intent(MainActivity.this,NotificationActivity.class));
+            PowerManager pm = (PowerManager) MainActivity.this.getSystemService(Context
+                    .POWER_SERVICE);
+
+            if (!pm.isScreenOn()) {
+                Log.i(TAG, "handleMessage: isScreenOff ");
+                PowerManager.WakeLock wl = pm.newWakeLock(PowerManager.ACQUIRE_CAUSES_WAKEUP |
+                        PowerManager.SCREEN_BRIGHT_WAKE_LOCK, "bright");
+                wl.acquire();
+                wl.release();
+            }
+
+            KeyguardManager km = (KeyguardManager) MainActivity.this.getSystemService(Context
+                    .KEYGUARD_SERVICE);
+
+            boolean b = km.inKeyguardRestrictedInputMode();
+
+            Log.i(TAG, "handleMessage: interactive = " + b);
+
+
+            return false;
+        }
+    });
+
+    @OnClick(R.id.bt_start_activity)
+    void startActivity() {
+        Intent intent = new Intent(this, Main3Activity.class);
+        startActivity(intent);
+    }
+
+    /**
+     * 触发系统响铃
+     *
+     * @param context
+     */
+    public static MediaPlayer startAlarm(Context context) {
+        MediaPlayer mMediaPlayer = null;
+        try {
+            mMediaPlayer = MediaPlayer.create(context, RingtoneManager
+                    .getActualDefaultRingtoneUri(context, RingtoneManager.TYPE_RINGTONE));
+            if (mMediaPlayer != null) {
+                mMediaPlayer.stop();
+            }
+        } catch (Exception e) {
+
+        }
+
+        if (mMediaPlayer == null) {
+            mMediaPlayer = MediaPlayer.create(context, R.raw.pstnring);
+            if (mMediaPlayer != null) {
+                mMediaPlayer.stop();
+            }
+        }
+
+        mMediaPlayer.setLooping(true);
+
+        try {
+            mMediaPlayer.prepare();
+        } catch (IllegalStateException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        mMediaPlayer.start();
+
+        return mMediaPlayer;
+    }
+
+    private void initUrl() {
+
+        urls = new ArrayList<>();
+        urls.add("http://images.yiban001.com/album/164468963455476489f76726864bd40c.jpg");
+        urls.add("http://images.yiban001.com/album/7d08d75fedc846a5853a8606aace5822.jpg");
+        urls.add("http://images.yiban001.com/album/40fab5f5883249269ef41117452441e7.jpg");
+        urls.add("http://images.yiban001.com/album/4cf09e3e2f834f699074e7284a052e2f.jpg");
+        urls.add("http://images.yiban001.com/album/56a77ae6573946929606062381329a3f.jpg");
+        urls.add("http://images.yiban001.com/album/a611b2b1eacc4f19a87d96fcdd3fed28.jpg");
+
+    }
+
+    private int index;
+    private float temp;
+    private void alphaAnimation() {
+        index = 0;
+        if (index == 0){
+            UserUtils.showAvatarWithArc(MainActivity.this,urls.get(index),iv);
+        }
+        final ObjectAnimator alphaOut = ObjectAnimator.ofFloat(iv, "alpha", 1f, 0f);
+        alphaOut.setDuration(3000);
+        alphaOut.setRepeatCount(ValueAnimator.INFINITE);
+        alphaOut.setRepeatMode(ValueAnimator.RESTART);
+        alphaOut.setInterpolator(new LinearInterpolator());
+        alphaOut.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+            @Override
+            public void onAnimationUpdate(ValueAnimator animation) {
+                float animatedValue = (float) animation.getAnimatedValue();
+                Log.i(TAG, "onAnimationUpdate: animatedValue = " + animatedValue);
+                float v = animatedValue - temp;
+                if (v > 0){
+                    temp = 1.0f;
+                    Log.i(TAG, "onAnimationUpdate: animatedValue == 0");
+                    index+=1;
+                    if (index < urls.size()){
+                        UserUtils.showAvatarWithArc(MainActivity.this,urls.get(index),iv);
+                        if (index == urls.size()-1){
+                            alphaOut.cancel();
+                        }
+                    }
+                    else {
+                        UserUtils.showAvatarWithArc(MainActivity.this,urls.get(urls.size()-1),iv);
+                        alphaOut.cancel();
+                    }
+                }
+                else {
+                    temp = animatedValue;
+                }
+            }
+        });
+        alphaOut.start();
+    }
+
+
+    private void daojishi(){
+        countDownTimer.start();
+    }
+
+    CountDownTimer countDownTimer = new CountDownTimer(3000,1000) {
+        @Override
+        public void onTick(long millisUntilFinished) {
+            Log.i(TAG, "onTick: millisUntilFinished ="+millisUntilFinished);
+        }
+
+        @Override
+        public void onFinish() {
+            Log.i(TAG, "onFinish: ");
+        }
+    };
+
 }

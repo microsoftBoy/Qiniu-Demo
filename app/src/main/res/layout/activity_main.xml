@@ -26,6 +26,17 @@
         android:hint="path"
         />
 
+    <TextView
+        android:id="@+id/textview"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:text="TextView"
+        android:textSize="30sp"
+        android:textColor="@drawable/textview_color_selector"
+        android:background="@drawable/textview_bg_selector"
+        />
+
     <Button
         android:id="@+id/button2"
         android:layout_width="match_parent"
@@ -43,7 +54,7 @@
         android:id="@+id/button4"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="拍照"
+        android:text="动画"
         />
 
     <Button
@@ -52,19 +63,26 @@
         android:layout_height="wrap_content"
         android:text="上传"
         />
+    <Button
+        android:id="@+id/bt_start_activity"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Main2Activity"/>
 
     <ImageView
         android:id="@+id/iv"
         android:layout_gravity="center_horizontal"
         android:layout_width="100dp"
         android:layout_height="100dp"
-        android:src="@mipmap/start_marry"/>
+        />
 
     <ProgressBar
         android:id="@+id/progressBar"
         style="?android:attr/progressBarStyleHorizontal"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_width="200dp"
+        android:layout_height="6dp"
+        android:layout_gravity="center"
+        android:progressDrawable="@drawable/progressbar"
         />
 
 

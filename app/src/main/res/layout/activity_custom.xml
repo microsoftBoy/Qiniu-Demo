@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    tools:context="com.zhangshuai.qiniu_demo.CustomActivity">
+    <com.zhangshuai.qiniu_demo.customview.FlowLayout
+        android:id="@+id/fl"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+    </com.zhangshuai.qiniu_demo.customview.FlowLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="@color/__picker_text_120"/>
+    <com.zhangshuai.qiniu_demo.customview.MultiColumnFolwView
+        android:id="@+id/mf"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:columns="2">
+
+    </com.zhangshuai.qiniu_demo.customview.MultiColumnFolwView>
+
+</LinearLayout>
